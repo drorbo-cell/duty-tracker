@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>מערכת תורנויות ונוכחות</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
-<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root {
     --bg: #0d1117;
@@ -591,10 +591,14 @@ let selectedShift = 'day';
 let selectedLoc = 'base';
 let weekOffset = 0;
 
+
+
 const CLIENT_ID = '147441907226-vptvqdhosdrfnqibgf2op5q1adka3n9t.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 const FILE_NAME = 'duty_tracker_data.json';
 let driveFileId = null;
-let gapiReady = false;
+let accessToken = null;
+let tokenClient = null;
 
 // ══════════════════════════════════════════
 //  LOCAL STORAGE (fallback)
@@ -608,108 +612,107 @@ function loadLocal() {
 }
 
 // ══════════════════════════════════════════
-//  GOOGLE DRIVE
+//  GOOGLE DRIVE — pure fetch + GIS tokens
 // ══════════════════════════════════════════
-function initGapi() {
-  gapi.load('client:auth2', () => {
-    gapi.client.init({
-      clientId: CLIENT_ID,
-      scope: 'https://www.googleapis.com/auth/drive.file',
-      discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
-    }).then(() => {
-      gapiReady = true;
-      if (gapi.auth2.getAuthInstance().isSignedIn.get()) onSignIn();
-    }).catch(() => {
-      // GAPI init failed — use local only
-    });
+function initTokenClient() {
+  if (!window.google || !window.google.accounts) return;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: async (resp) => {
+      if (resp.error) { showToast('שגיאה בהתחברות: ' + resp.error); return; }
+      accessToken = resp.access_token;
+      await onSignIn();
+    }
   });
 }
 
 function handleAuth() {
-  if (!gapiReady) {
-    showToast('Google Drive לא זמין — שומר מקומית בלבד');
-    return;
+  if (!tokenClient) {
+    initTokenClient();
+    if (!tokenClient) { showToast('Google לא נטען עדיין, נסה שוב'); return; }
   }
-  const auth = gapi.auth2.getAuthInstance();
-  if (auth.isSignedIn.get()) {
-    auth.signOut();
+  if (accessToken) {
+    google.accounts.oauth2.revoke(accessToken, () => {});
+    accessToken = null;
+    driveFileId = null;
     document.getElementById('auth-btn').textContent = 'התחבר ל-Google Drive';
     document.getElementById('auth-btn').classList.remove('connected');
     document.getElementById('sync-status').textContent = 'לא מחובר';
-    driveFileId = null;
-  } else {
-    auth.signIn().then(onSignIn);
+    return;
   }
+  tokenClient.requestAccessToken({ prompt: 'consent' });
 }
 
-function onSignIn() {
+async function onSignIn() {
   document.getElementById('auth-btn').textContent = '🔗 מחובר ל-Google Drive';
   document.getElementById('auth-btn').classList.add('connected');
   document.getElementById('sync-status').textContent = 'מחובר ✓';
-  loadFromDrive();
+  await loadFromDrive();
+}
+
+async function driveGet(url) {
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+  return r;
 }
 
 async function findOrCreateFile() {
-  const res = await gapi.client.drive.files.list({
-    q: `name='${FILE_NAME}' and trashed=false`,
-    spaces: 'drive',
-    fields: 'files(id,name)'
-  });
-  if (res.result.files.length > 0) {
-    driveFileId = res.result.files[0].id;
+  const q = encodeURIComponent(`name='${FILE_NAME}' and trashed=false`);
+  const r = await driveGet(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name)`);
+  const data = await r.json();
+  if (data.files && data.files.length > 0) {
+    driveFileId = data.files[0].id;
   } else {
-    const create = await gapi.client.request({
-      path: '/upload/drive/v3/files',
+    // create new file via multipart
+    const boundary = 'duty_bnd_001';
+    const meta = JSON.stringify({ name: FILE_NAME, mimeType: 'application/json' });
+    const body = JSON.stringify(state);
+    const mp = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
+    const cr = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
       method: 'POST',
-      params: { uploadType: 'multipart' },
-      headers: { 'Content-Type': 'multipart/related; boundary=foo_bar_baz' },
-      body: [
-        '--foo_bar_baz',
-        'Content-Type: application/json; charset=UTF-8',
-        '',
-        JSON.stringify({ name: FILE_NAME, mimeType: 'application/json' }),
-        '--foo_bar_baz',
-        'Content-Type: application/json',
-        '',
-        JSON.stringify(state),
-        '--foo_bar_baz--'
-      ].join('\r\n')
+      headers: {
+        Authorization: 'Bearer ' + accessToken,
+        'Content-Type': `multipart/related; boundary=${boundary}`
+      },
+      body: mp
     });
-    driveFileId = create.result.id;
+    const cd = await cr.json();
+    driveFileId = cd.id;
   }
 }
 
 async function loadFromDrive() {
   try {
     await findOrCreateFile();
-    const res = await gapi.client.drive.files.get({
-      fileId: driveFileId,
-      alt: 'media'
-    });
-    if (res.result && res.result.people) {
-      state = res.result;
+    const r = await driveGet(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`);
+    const text = await r.text();
+    if (text && text.trim().startsWith('{')) {
+      const parsed = JSON.parse(text);
+      if (parsed.people) state = parsed;
     }
     renderAll();
     showToast('נתונים נטענו מ-Google Drive ✓');
   } catch (e) {
-    showToast('שגיאה בטעינה מ-Drive — שומר מקומית');
+    console.error('Drive load error', e);
+    showToast('שגיאה בטעינה מ-Drive — ' + e.message);
   }
 }
 
 async function saveToDrive() {
-  if (!driveFileId || !gapiReady) { saveLocal(); return; }
+  saveLocal();
+  if (!driveFileId || !accessToken) return;
   try {
-    await gapi.client.request({
-      path: `/upload/drive/v3/files/${driveFileId}`,
+    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
       method: 'PATCH',
-      params: { uploadType: 'media' },
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: 'Bearer ' + accessToken,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(state)
     });
     showToast('נשמר ב-Google Drive ✓');
   } catch (e) {
-    saveLocal();
-    showToast('נשמר מקומית (Drive לא זמין)');
+    showToast('נשמר מקומית בלבד');
   }
 }
 
@@ -944,13 +947,24 @@ function openDayModal(iso) {
         </div>
         <div style="font-size:13px;margin-bottom:4px;"><b>נהגים:</b> ${r.drivers.map(id => personName(id)).join(', ')}</div>
         <div style="font-size:13px;margin-bottom:4px;"><b>נוכחים:</b> ${r.present.map(id => personName(id)).join(', ')}</div>
-        ${r.notes ? `<div style="font-size:12px;color:var(--text-muted)">${r.notes}</div>` : ''}
+        ${r.notes ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">${r.notes}</div>` : ''}
+        <div style="display:flex;justify-content:flex-end;margin-top:10px">
+          <button class="btn btn-danger btn-sm" onclick="deleteRecordFromModal('${r.id}','${iso}')">🗑 מחק רישום</button>
+        </div>
       </div>
     `).join('');
   }
   document.getElementById('day-modal').classList.add('open');
-  // preset date when clicking Add from modal
   document.getElementById('r-date').value = iso;
+}
+
+function deleteRecordFromModal(id, iso) {
+  if (!confirm('למחוק רישום זה?')) return;
+  state.records = state.records.filter(r => r.id !== id);
+  saveToDrive();
+  renderCalendar();
+  showToast('נמחק ✓');
+  openDayModal(iso);
 }
 
 function closeModal() {
@@ -1034,17 +1048,16 @@ renderAll();
 setDefaultDate();
 selectShift('day');
 selectLoc('base');
-
-// Try to init Google API
-if (typeof gapi !== 'undefined') {
-  initGapi();
-}
 </script>
 
-<!-- Load GAPI async -->
 <script>
 window.addEventListener('load', () => {
-  if (typeof gapi !== 'undefined') initGapi();
+  const waitForGIS = setInterval(() => {
+    if (window.google && window.google.accounts) {
+      clearInterval(waitForGIS);
+      initTokenClient();
+    }
+  }, 200);
 });
 </script>
 
