@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מערכת תורנויות ונוכחות</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+<script src="https://apis.google.com/js/api.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2330;
+    --border: #30363d;
+    --accent-day: #f0a500;
+    --accent-night: #4c8bf5;
+    --accent-base: #3fb950;
+    --accent-home: #bc8cff;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --red: #f85149;
+    --card-radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Heebo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    direction: rtl;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+  header h1 span { color: var(--accent-day); }
+
+  .header-right { display: flex; align-items: center; gap: 12px; }
+
+  #auth-btn {
+    background: #238636;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-family: 'Heebo', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  #auth-btn:hover { background: #2ea043; }
+  #auth-btn.connected { background: #1a3a1a; color: var(--accent-base); border: 1px solid #238636; }
+
+  #sync-status {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 4px;
+    margin-bottom: 24px;
+    width: fit-content;
+  }
+  .tab-btn {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'Heebo', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .tab-btn.active {
+    background: var(--surface2);
+    color: var(--text);
+    box-shadow: 0 1px 4px rgba(0,0,0,.4);
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── FORM ELEMENTS ── */
+  label { font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px; margin-top: 14px; }
+  label:first-child { margin-top: 0; }
+
+  input[type=date], input[type=text], select, textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Heebo', sans-serif;
+    font-size: 14px;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color .2s;
+    direction: rtl;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent-night); }
+
+  .btn {
+    border: none;
+    border-radius: 6px;
+    padding: 9px 18px;
+    font-family: 'Heebo', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-primary { background: #1f6feb; color: #fff; }
+  .btn-primary:hover { background: #388bfd; }
+  .btn-success { background: #238636; color: #fff; }
+  .btn-success:hover { background: #2ea043; }
+  .btn-danger { background: transparent; color: var(--red); border: 1px solid var(--red); padding: 4px 10px; font-size: 12px; }
+  .btn-danger:hover { background: rgba(248,81,73,.1); }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+  /* ── SHIFT TYPE PILLS ── */
+  .shift-type-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 0;
+  }
+  .shift-pill {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all .2s;
+    user-select: none;
+  }
+  .shift-pill.day { border-color: var(--border); }
+  .shift-pill.day.selected { background: rgba(240,165,0,.15); border-color: var(--accent-day); color: var(--accent-day); }
+  .shift-pill.night { border-color: var(--border); }
+  .shift-pill.night.selected { background: rgba(76,139,245,.15); border-color: var(--accent-night); color: var(--accent-night); }
+
+  /* ── LOCATION TOGGLE ── */
+  .location-toggle { display: flex; gap: 8px; }
+  .loc-pill {
+    flex: 1;
+    text-align: center;
+    padding: 8px;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all .2s;
+    user-select: none;
+  }
+  .loc-pill.base.selected { background: rgba(63,185,80,.15); border-color: var(--accent-base); color: var(--accent-base); }
+  .loc-pill.home.selected { background: rgba(188,140,255,.15); border-color: var(--accent-home); color: var(--accent-home); }
+
+  /* ── MULTI-SELECT PEOPLE ── */
+  .people-multiselect {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    max-height: 160px;
+    overflow-y: auto;
+    padding: 6px;
+  }
+  .people-multiselect label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text);
+    font-size: 14px;
+    transition: background .15s;
+  }
+  .people-multiselect label:hover { background: var(--surface2); }
+  .people-multiselect input[type=checkbox] { width: auto; accent-color: var(--accent-night); }
+
+  /* ── GRID ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    background: var(--surface2);
+    color: var(--text-muted);
+    text-align: right;
+    padding: 10px 14px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(48,54,61,.5);
+    vertical-align: middle;
+  }
+  tr:hover td { background: rgba(255,255,255,.02); }
+
+  /* ── BADGES ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    margin: 1px;
+  }
+  .badge-day { background: rgba(240,165,0,.15); color: var(--accent-day); }
+  .badge-night { background: rgba(76,139,245,.15); color: var(--accent-night); }
+  .badge-base { background: rgba(63,185,80,.15); color: var(--accent-base); }
+  .badge-home { background: rgba(188,140,255,.15); color: var(--accent-home); }
+  .badge-person { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+
+  /* ── PEOPLE LIST ── */
+  .people-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .person-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .person-name { font-size: 14px; font-weight: 500; }
+  .person-initials {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-night), var(--accent-home));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    margin-left: 10px;
+  }
+
+  /* ── STATS ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 16px;
+  }
+  .stat-value { font-size: 28px; font-weight: 900; line-height: 1; }
+  .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+  /* ── DATE NAV ── */
+  .date-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .date-nav button {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 18px;
+    width: 34px; height: 34px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .2s;
+  }
+  .date-nav button:hover { background: var(--surface2); }
+  .date-nav h2 { font-size: 16px; font-weight: 600; flex: 1; }
+
+  /* ── WEEK GRID ── */
+  .week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+  }
+  .day-cell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 8px;
+    min-height: 120px;
+    cursor: pointer;
+    transition: border-color .2s;
+    position: relative;
+  }
+  .day-cell:hover { border-color: var(--accent-night); }
+  .day-cell.today { border-color: var(--accent-day); }
+  .day-num { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .day-name { font-size: 10px; color: var(--text-muted); margin-bottom: 8px; }
+  .day-events { display: flex; flex-direction: column; gap: 3px; }
+  .day-event {
+    font-size: 10px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .day-event.day { background: rgba(240,165,0,.2); color: var(--accent-day); }
+  .day-event.night { background: rgba(76,139,245,.2); color: var(--accent-night); }
+
+  @media (max-width: 700px) {
+    .week-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .modal-title { font-size: 18px; font-weight: 700; }
+  .modal-close {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 20px; cursor: pointer; line-height: 1;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 14px;
+    z-index: 999;
+    transition: transform .3s ease;
+    pointer-events: none;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  .mt { margin-top: 14px; }
+  .flex-end { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🚗 מערכת <span>תורנויות</span></h1>
+  <div class="header-right">
+    <span id="sync-status">לא מחובר</span>
+    <button id="auth-btn" onclick="handleAuth()">התחבר ל-Google Drive</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('calendar')">📅 לוח שנה</button>
+    <button class="tab-btn" onclick="showTab('add')">➕ הוספת רישום</button>
+    <button class="tab-btn" onclick="showTab('log')">📋 יומן</button>
+    <button class="tab-btn" onclick="showTab('people')">👥 אנשים</button>
+    <button class="tab-btn" onclick="showTab('stats')">📊 סטטיסטיקה</button>
+  </div>
+
+  <!-- ═══ TAB: CALENDAR ═══ -->
+  <div id="tab-calendar" class="tab-panel active">
+    <div class="date-nav">
+      <button onclick="prevWeek()">›</button>
+      <h2 id="week-label"></h2>
+      <button onclick="nextWeek()">‹</button>
+      <button class="btn btn-primary btn-sm" onclick="goToday()">היום</button>
+    </div>
+    <div class="week-grid" id="week-grid"></div>
+  </div>
+
+  <!-- ═══ TAB: ADD ═══ -->
+  <div id="tab-add" class="tab-panel">
+    <div class="card">
+      <div class="card-title">📝 רישום חדש</div>
+
+      <label>תאריך</label>
+      <input type="date" id="r-date">
+
+      <label>סוג תורנות</label>
+      <div class="shift-type-toggle">
+        <div class="shift-pill day" id="pill-day" onclick="selectShift('day')">☀️ יום</div>
+        <div class="shift-pill night" id="pill-night" onclick="selectShift('night')">🌙 לילה</div>
+      </div>
+
+      <label class="mt">נהג/ים (בחר אחד או יותר)</label>
+      <div class="people-multiselect" id="drivers-list"></div>
+
+      <label class="mt">נוכחות (מיקום)</label>
+      <div class="location-toggle">
+        <div class="loc-pill base" id="loc-base" onclick="selectLoc('base')">🏢 בסיס</div>
+        <div class="loc-pill home" id="loc-home" onclick="selectLoc('home')">🏠 בית</div>
+      </div>
+
+      <label class="mt">אנשים נוכחים (בחר אחד או יותר)</label>
+      <div class="people-multiselect" id="present-list"></div>
+
+      <label class="mt">הערות</label>
+      <textarea id="r-notes" rows="2" placeholder="הערות נוספות..."></textarea>
+
+      <div class="flex-end">
+        <button class="btn btn-success" onclick="saveRecord()">💾 שמור רישום</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: LOG ═══ -->
+  <div id="tab-log" class="tab-panel">
+    <div class="card">
+      <div class="card-title">📋 כל הרישומים</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>תאריך</th>
+              <th>משמרת</th>
+              <th>נהגים</th>
+              <th>מיקום</th>
+              <th>נוכחים</th>
+              <th>הערות</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="log-tbody"></tbody>
+        </table>
+      </div>
+      <div id="log-empty" class="empty-state" style="display:none">אין רישומים עדיין</div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: PEOPLE ═══ -->
+  <div id="tab-people" class="tab-panel">
+    <div class="card">
+      <div class="card-title">➕ הוספת אדם חדש</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;">
+        <div style="flex:1">
+          <label>שם מלא</label>
+          <input type="text" id="new-person-name" placeholder='לדוגמה: יוסי כהן' onkeydown="if(event.key==='Enter')addPerson()">
+        </div>
+        <button class="btn btn-success" onclick="addPerson()">הוסף</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">👥 רשימת אנשים</div>
+      <div class="people-grid" id="people-grid"></div>
+      <div id="people-empty" class="empty-state" style="display:none">אין אנשים ברשימה</div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: STATS ═══ -->
+  <div id="tab-stats" class="tab-panel">
+    <div class="stats-grid" id="stats-grid"></div>
+    <div class="card">
+      <div class="card-title">📊 סיכום לפי אדם</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>שם</th>
+              <th>תורנויות יום</th>
+              <th>תורנויות לילה</th>
+              <th>סה"כ תורנויות</th>
+              <th>ימי בסיס</th>
+              <th>ימי בית</th>
+            </tr>
+          </thead>
+          <tbody id="stats-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Day detail ═══ -->
+<div class="modal-overlay" id="day-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="day-modal-title"></div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div id="day-modal-body"></div>
+    <div class="flex-end">
+      <button class="btn btn-primary" onclick="closeModal();showTab('add')">➕ הוסף רישום לתאריך זה</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let state = {
+  people: [],
+  records: []   // {id, date, shift:'day'|'night', drivers:[], location:'base'|'home', present:[], notes}
+};
+let selectedShift = 'day';
+let selectedLoc = 'base';
+let weekOffset = 0;
+
+const CLIENT_ID = '147441907226-vptvqdhosdrfnqibgf2op5q1adka3n9t.apps.googleusercontent.com';
+const FILE_NAME = 'duty_tracker_data.json';
+let driveFileId = null;
+let gapiReady = false;
+
+// ══════════════════════════════════════════
+//  LOCAL STORAGE (fallback)
+// ══════════════════════════════════════════
+function saveLocal() {
+  localStorage.setItem('duty_tracker', JSON.stringify(state));
+}
+function loadLocal() {
+  const raw = localStorage.getItem('duty_tracker');
+  if (raw) state = JSON.parse(raw);
+}
+
+// ══════════════════════════════════════════
+//  GOOGLE DRIVE
+// ══════════════════════════════════════════
+function initGapi() {
+  gapi.load('client:auth2', () => {
+    gapi.client.init({
+      clientId: CLIENT_ID,
+      scope: 'https://www.googleapis.com/auth/drive.file',
+      discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+    }).then(() => {
+      gapiReady = true;
+      if (gapi.auth2.getAuthInstance().isSignedIn.get()) onSignIn();
+    }).catch(() => {
+      // GAPI init failed — use local only
+    });
+  });
+}
+
+function handleAuth() {
+  if (!gapiReady) {
+    showToast('Google Drive לא זמין — שומר מקומית בלבד');
+    return;
+  }
+  const auth = gapi.auth2.getAuthInstance();
+  if (auth.isSignedIn.get()) {
+    auth.signOut();
+    document.getElementById('auth-btn').textContent = 'התחבר ל-Google Drive';
+    document.getElementById('auth-btn').classList.remove('connected');
+    document.getElementById('sync-status').textContent = 'לא מחובר';
+    driveFileId = null;
+  } else {
+    auth.signIn().then(onSignIn);
+  }
+}
+
+function onSignIn() {
+  document.getElementById('auth-btn').textContent = '🔗 מחובר ל-Google Drive';
+  document.getElementById('auth-btn').classList.add('connected');
+  document.getElementById('sync-status').textContent = 'מחובר ✓';
+  loadFromDrive();
+}
+
+async function findOrCreateFile() {
+  const res = await gapi.client.drive.files.list({
+    q: `name='${FILE_NAME}' and trashed=false`,
+    spaces: 'drive',
+    fields: 'files(id,name)'
+  });
+  if (res.result.files.length > 0) {
+    driveFileId = res.result.files[0].id;
+  } else {
+    const create = await gapi.client.request({
+      path: '/upload/drive/v3/files',
+      method: 'POST',
+      params: { uploadType: 'multipart' },
+      headers: { 'Content-Type': 'multipart/related; boundary=foo_bar_baz' },
+      body: [
+        '--foo_bar_baz',
+        'Content-Type: application/json; charset=UTF-8',
+        '',
+        JSON.stringify({ name: FILE_NAME, mimeType: 'application/json' }),
+        '--foo_bar_baz',
+        'Content-Type: application/json',
+        '',
+        JSON.stringify(state),
+        '--foo_bar_baz--'
+      ].join('\r\n')
+    });
+    driveFileId = create.result.id;
+  }
+}
+
+async function loadFromDrive() {
+  try {
+    await findOrCreateFile();
+    const res = await gapi.client.drive.files.get({
+      fileId: driveFileId,
+      alt: 'media'
+    });
+    if (res.result && res.result.people) {
+      state = res.result;
+    }
+    renderAll();
+    showToast('נתונים נטענו מ-Google Drive ✓');
+  } catch (e) {
+    showToast('שגיאה בטעינה מ-Drive — שומר מקומית');
+  }
+}
+
+async function saveToDrive() {
+  if (!driveFileId || !gapiReady) { saveLocal(); return; }
+  try {
+    await gapi.client.request({
+      path: `/upload/drive/v3/files/${driveFileId}`,
+      method: 'PATCH',
+      params: { uploadType: 'media' },
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state)
+    });
+    showToast('נשמר ב-Google Drive ✓');
+  } catch (e) {
+    saveLocal();
+    showToast('נשמר מקומית (Drive לא זמין)');
+  }
+}
+
+// ══════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  const idx = ['calendar','add','log','people','stats'].indexOf(name);
+  document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+  if (name === 'calendar') renderCalendar();
+  if (name === 'log') renderLog();
+  if (name === 'people') renderPeople();
+  if (name === 'stats') renderStats();
+  if (name === 'add') { populatePeopleLists(); setDefaultDate(); }
+}
+
+// ══════════════════════════════════════════
+//  PEOPLE
+// ══════════════════════════════════════════
+function addPerson() {
+  const input = document.getElementById('new-person-name');
+  const name = input.value.trim();
+  if (!name) return;
+  if (state.people.find(p => p.name === name)) { showToast('האדם כבר ברשימה'); return; }
+  state.people.push({ id: Date.now().toString(), name });
+  input.value = '';
+  saveToDrive();
+  renderPeople();
+  populatePeopleLists();
+  showToast(`${name} נוסף בהצלחה ✓`);
+}
+
+function deletePerson(id) {
+  if (!confirm('למחוק אדם זה?')) return;
+  state.people = state.people.filter(p => p.id !== id);
+  saveToDrive();
+  renderPeople();
+  populatePeopleLists();
+}
+
+function renderPeople() {
+  const grid = document.getElementById('people-grid');
+  const empty = document.getElementById('people-empty');
+  if (state.people.length === 0) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  grid.innerHTML = state.people.map(p => `
+    <div class="person-card">
+      <div style="display:flex;align-items:center;">
+        <div class="person-initials">${p.name.slice(0,2)}</div>
+        <div class="person-name">${p.name}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deletePerson('${p.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+function populatePeopleLists() {
+  ['drivers-list', 'present-list'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = state.people.length === 0
+      ? '<div style="padding:10px;color:var(--text-muted);font-size:13px">אין אנשים ברשימה — הוסף בלשונית "אנשים"</div>'
+      : state.people.map(p => `
+          <label>
+            <input type="checkbox" value="${p.id}">
+            ${p.name}
+          </label>
+        `).join('');
+  });
+}
+
+// ══════════════════════════════════════════
+//  ADD RECORD
+// ══════════════════════════════════════════
+function selectShift(type) {
+  selectedShift = type;
+  document.getElementById('pill-day').classList.toggle('selected', type === 'day');
+  document.getElementById('pill-night').classList.toggle('selected', type === 'night');
+}
+
+function selectLoc(loc) {
+  selectedLoc = loc;
+  document.getElementById('loc-base').classList.toggle('selected', loc === 'base');
+  document.getElementById('loc-home').classList.toggle('selected', loc === 'home');
+}
+
+function setDefaultDate() {
+  const el = document.getElementById('r-date');
+  if (el && !el.value) el.value = new Date().toISOString().slice(0,10);
+  selectShift('day');
+  selectLoc('base');
+}
+
+function getChecked(containerId) {
+  return [...document.querySelectorAll(`#${containerId} input[type=checkbox]:checked`)]
+    .map(c => c.value);
+}
+
+function saveRecord() {
+  const date = document.getElementById('r-date').value;
+  const notes = document.getElementById('r-notes').value.trim();
+  const drivers = getChecked('drivers-list');
+  const present = getChecked('present-list');
+
+  if (!date) { showToast('בחר תאריך'); return; }
+  if (drivers.length === 0) { showToast('בחר לפחות נהג אחד'); return; }
+  if (present.length === 0) { showToast('בחר לפחות נוכח אחד'); return; }
+
+  state.records.push({
+    id: Date.now().toString(),
+    date,
+    shift: selectedShift,
+    drivers,
+    location: selectedLoc,
+    present,
+    notes
+  });
+  state.records.sort((a,b) => b.date.localeCompare(a.date));
+
+  // reset
+  document.getElementById('r-notes').value = '';
+  document.querySelectorAll('#drivers-list input, #present-list input').forEach(c => c.checked = false);
+
+  saveToDrive();
+  showToast('הרישום נשמר בהצלחה ✓');
+  showTab('log');
+}
+
+// ══════════════════════════════════════════
+//  LOG
+// ══════════════════════════════════════════
+function renderLog() {
+  const tbody = document.getElementById('log-tbody');
+  const empty = document.getElementById('log-empty');
+  if (state.records.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = state.records.map(r => `
+    <tr>
+      <td>${formatDate(r.date)}</td>
+      <td>${r.shift === 'day'
+        ? '<span class="badge badge-day">☀️ יום</span>'
+        : '<span class="badge badge-night">🌙 לילה</span>'}</td>
+      <td>${r.drivers.map(id => personName(id)).map(n => `<span class="badge badge-person">${n}</span>`).join('')}</td>
+      <td>${r.location === 'base'
+        ? '<span class="badge badge-base">🏢 בסיס</span>'
+        : '<span class="badge badge-home">🏠 בית</span>'}</td>
+      <td>${r.present.map(id => personName(id)).map(n => `<span class="badge badge-person">${n}</span>`).join('')}</td>
+      <td style="color:var(--text-muted);font-size:12px">${r.notes || '—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteRecord('${r.id}')">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+function deleteRecord(id) {
+  if (!confirm('למחוק רישום זה?')) return;
+  state.records = state.records.filter(r => r.id !== id);
+  saveToDrive();
+  renderLog();
+  showToast('נמחק ✓');
+}
+
+// ══════════════════════════════════════════
+//  CALENDAR
+// ══════════════════════════════════════════
+const DAYS_HE = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
+const DAYS_FULL = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+
+function getWeekStart() {
+  const now = new Date();
+  const day = now.getDay();
+  const start = new Date(now);
+  start.setDate(now.getDate() - day + weekOffset * 7);
+  start.setHours(0,0,0,0);
+  return start;
+}
+
+function renderCalendar() {
+  const start = getWeekStart();
+  const end = new Date(start); end.setDate(start.getDate() + 6);
+  document.getElementById('week-label').textContent =
+    `${formatDate(toISO(start))} — ${formatDate(toISO(end))}`;
+
+  const grid = document.getElementById('week-grid');
+  grid.innerHTML = '';
+  const today = new Date().toISOString().slice(0,10);
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const iso = toISO(d);
+    const recs = state.records.filter(r => r.date === iso);
+    const isToday = iso === today;
+
+    const cell = document.createElement('div');
+    cell.className = 'day-cell' + (isToday ? ' today' : '');
+    cell.onclick = () => openDayModal(iso);
+
+    const events = recs.map(r => `
+      <div class="day-event ${r.shift}">
+        ${r.shift === 'day' ? '☀️' : '🌙'}
+        ${r.drivers.map(id => personName(id)).join(', ')}
+      </div>
+    `).join('');
+
+    cell.innerHTML = `
+      <div class="day-num">${d.getDate()}</div>
+      <div class="day-name">${DAYS_FULL[d.getDay()]}</div>
+      <div class="day-events">${events || ''}</div>
+    `;
+    grid.appendChild(cell);
+  }
+}
+
+function prevWeek() { weekOffset--; renderCalendar(); }
+function nextWeek() { weekOffset++; renderCalendar(); }
+function goToday() { weekOffset = 0; renderCalendar(); }
+
+function openDayModal(iso) {
+  const recs = state.records.filter(r => r.date === iso);
+  document.getElementById('day-modal-title').textContent = '📅 ' + formatDate(iso);
+  const body = document.getElementById('day-modal-body');
+  if (recs.length === 0) {
+    body.innerHTML = '<div class="empty-state">אין רישומים לתאריך זה</div>';
+  } else {
+    body.innerHTML = recs.map(r => `
+      <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:10px;border:1px solid var(--border)">
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          ${r.shift === 'day' ? '<span class="badge badge-day">☀️ יום</span>' : '<span class="badge badge-night">🌙 לילה</span>'}
+          ${r.location === 'base' ? '<span class="badge badge-base">🏢 בסיס</span>' : '<span class="badge badge-home">🏠 בית</span>'}
+        </div>
+        <div style="font-size:13px;margin-bottom:4px;"><b>נהגים:</b> ${r.drivers.map(id => personName(id)).join(', ')}</div>
+        <div style="font-size:13px;margin-bottom:4px;"><b>נוכחים:</b> ${r.present.map(id => personName(id)).join(', ')}</div>
+        ${r.notes ? `<div style="font-size:12px;color:var(--text-muted)">${r.notes}</div>` : ''}
+      </div>
+    `).join('');
+  }
+  document.getElementById('day-modal').classList.add('open');
+  // preset date when clicking Add from modal
+  document.getElementById('r-date').value = iso;
+}
+
+function closeModal() {
+  document.getElementById('day-modal').classList.remove('open');
+}
+
+// ══════════════════════════════════════════
+//  STATS
+// ══════════════════════════════════════════
+function renderStats() {
+  const totalRecs = state.records.length;
+  const dayRecs = state.records.filter(r => r.shift === 'day').length;
+  const nightRecs = state.records.filter(r => r.shift === 'night').length;
+  const baseRecs = state.records.filter(r => r.location === 'base').length;
+  const homeRecs = state.records.filter(r => r.location === 'home').length;
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-value">${totalRecs}</div><div class="stat-label">סה"כ רישומים</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--accent-day)">${dayRecs}</div><div class="stat-label">תורנויות יום</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--accent-night)">${nightRecs}</div><div class="stat-label">תורנויות לילה</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--accent-base)">${baseRecs}</div><div class="stat-label">ימים בבסיס</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--accent-home)">${homeRecs}</div><div class="stat-label">ימים בבית</div></div>
+    <div class="stat-card"><div class="stat-value">${state.people.length}</div><div class="stat-label">אנשים ברשימה</div></div>
+  `;
+
+  const tbody = document.getElementById('stats-tbody');
+  tbody.innerHTML = state.people.map(p => {
+    const dr = state.records.filter(r => r.drivers.includes(p.id));
+    const day = dr.filter(r => r.shift === 'day').length;
+    const night = dr.filter(r => r.shift === 'night').length;
+    const pr = state.records.filter(r => r.present.includes(p.id));
+    const base = pr.filter(r => r.location === 'base').length;
+    const home = pr.filter(r => r.location === 'home').length;
+    return `<tr>
+      <td><b>${p.name}</b></td>
+      <td><span class="badge badge-day">${day}</span></td>
+      <td><span class="badge badge-night">${night}</span></td>
+      <td><b>${day+night}</b></td>
+      <td><span class="badge badge-base">${base}</span></td>
+      <td><span class="badge badge-home">${home}</span></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" class="empty-state">אין נתונים</td></tr>';
+}
+
+// ══════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════
+function personName(id) {
+  const p = state.people.find(x => x.id === id);
+  return p ? p.name : id;
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function toISO(d) {
+  return d.toISOString().slice(0,10);
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function renderAll() {
+  renderPeople();
+  populatePeopleLists();
+  renderCalendar();
+}
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+loadLocal();
+renderAll();
+setDefaultDate();
+selectShift('day');
+selectLoc('base');
+
+// Try to init Google API
+if (typeof gapi !== 'undefined') {
+  initGapi();
+}
+</script>
+
+<!-- Load GAPI async -->
+<script>
+window.addEventListener('load', () => {
+  if (typeof gapi !== 'undefined') initGapi();
+});
+</script>
+
+</body>
+</html>
