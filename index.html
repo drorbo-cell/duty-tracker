@@ -469,10 +469,10 @@
       <label>תאריך</label>
       <input type="date" id="r-date">
 
-      <label>סוג תורנות</label>
+      <label>סוג תורנות (ניתן לבחור יום, לילה, או שניהם)</label>
       <div class="shift-type-toggle">
-        <div class="shift-pill day" id="pill-day" onclick="selectShift('day')">☀️ יום</div>
-        <div class="shift-pill night" id="pill-night" onclick="selectShift('night')">🌙 לילה</div>
+        <div class="shift-pill day" id="pill-day" onclick="toggleShift('day')">☀️ יום</div>
+        <div class="shift-pill night" id="pill-night" onclick="toggleShift('night')">🌙 לילה</div>
       </div>
 
       <label class="mt">נהג/ים (בחר אחד או יותר)</label>
@@ -790,8 +790,22 @@ function populatePeopleLists() {
 // ══════════════════════════════════════════
 //  ADD RECORD
 // ══════════════════════════════════════════
+// selectedShifts is now a Set
+let selectedShifts = new Set(['day']);
+
+function toggleShift(type) {
+  if (selectedShifts.has(type)) {
+    // don't allow deselecting both
+    if (selectedShifts.size > 1) selectedShifts.delete(type);
+  } else {
+    selectedShifts.add(type);
+  }
+  document.getElementById('pill-day').classList.toggle('selected', selectedShifts.has('day'));
+  document.getElementById('pill-night').classList.toggle('selected', selectedShifts.has('night'));
+}
+
 function selectShift(type) {
-  selectedShift = type;
+  selectedShifts = new Set([type]);
   document.getElementById('pill-day').classList.toggle('selected', type === 'day');
   document.getElementById('pill-night').classList.toggle('selected', type === 'night');
 }
@@ -805,7 +819,9 @@ function selectLoc(loc) {
 function setDefaultDate() {
   const el = document.getElementById('r-date');
   if (el && !el.value) el.value = new Date().toISOString().slice(0,10);
-  selectShift('day');
+  selectedShifts = new Set(['day']);
+  document.getElementById('pill-day').classList.add('selected');
+  document.getElementById('pill-night').classList.remove('selected');
   selectLoc('base');
 }
 
@@ -827,7 +843,7 @@ function saveRecord() {
   state.records.push({
     id: Date.now().toString(),
     date,
-    shift: selectedShift,
+    shift: selectedShifts.size === 2 ? 'both' : [...selectedShifts][0],
     drivers,
     location: selectedLoc,
     present,
@@ -855,9 +871,7 @@ function renderLog() {
   tbody.innerHTML = state.records.map(r => `
     <tr>
       <td>${formatDate(r.date)}</td>
-      <td>${r.shift === 'day'
-        ? '<span class="badge badge-day">☀️ יום</span>'
-        : '<span class="badge badge-night">🌙 לילה</span>'}</td>
+      <td>${shiftBadge(r.shift)}</td>
       <td>${r.drivers.map(id => personName(id)).map(n => `<span class="badge badge-person">${n}</span>`).join('')}</td>
       <td>${r.location === 'base'
         ? '<span class="badge badge-base">🏢 בסיס</span>'
@@ -913,8 +927,8 @@ function renderCalendar() {
     cell.onclick = () => openDayModal(iso);
 
     const events = recs.map(r => `
-      <div class="day-event ${r.shift}">
-        ${r.shift === 'day' ? '☀️' : '🌙'}
+      <div class="day-event ${r.shift === 'both' ? 'day' : r.shift}" style="${r.shift === 'both' ? 'background:linear-gradient(90deg,rgba(240,165,0,.2),rgba(76,139,245,.2));color:var(--text)' : ''}">
+        ${r.shift === 'both' ? '☀️🌙' : r.shift === 'day' ? '☀️' : '🌙'}
         ${r.drivers.map(id => personName(id)).join(', ')}
       </div>
     `).join('');
@@ -942,7 +956,7 @@ function openDayModal(iso) {
     body.innerHTML = recs.map(r => `
       <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:10px;border:1px solid var(--border)">
         <div style="display:flex;gap:8px;margin-bottom:8px;">
-          ${r.shift === 'day' ? '<span class="badge badge-day">☀️ יום</span>' : '<span class="badge badge-night">🌙 לילה</span>'}
+          ${shiftBadge(r.shift)}
           ${r.location === 'base' ? '<span class="badge badge-base">🏢 בסיס</span>' : '<span class="badge badge-home">🏠 בית</span>'}
         </div>
         <div style="font-size:13px;margin-bottom:4px;"><b>נהגים:</b> ${r.drivers.map(id => personName(id)).join(', ')}</div>
@@ -976,8 +990,8 @@ function closeModal() {
 // ══════════════════════════════════════════
 function renderStats() {
   const totalRecs = state.records.length;
-  const dayRecs = state.records.filter(r => r.shift === 'day').length;
-  const nightRecs = state.records.filter(r => r.shift === 'night').length;
+  const dayRecs = state.records.filter(r => r.shift === 'day' || r.shift === 'both').length;
+  const nightRecs = state.records.filter(r => r.shift === 'night' || r.shift === 'both').length;
   const baseRecs = state.records.filter(r => r.location === 'base').length;
   const homeRecs = state.records.filter(r => r.location === 'home').length;
 
@@ -993,8 +1007,8 @@ function renderStats() {
   const tbody = document.getElementById('stats-tbody');
   tbody.innerHTML = state.people.map(p => {
     const dr = state.records.filter(r => r.drivers.includes(p.id));
-    const day = dr.filter(r => r.shift === 'day').length;
-    const night = dr.filter(r => r.shift === 'night').length;
+    const day = dr.filter(r => r.shift === 'day' || r.shift === 'both').length;
+    const night = dr.filter(r => r.shift === 'night' || r.shift === 'both').length;
     const pr = state.records.filter(r => r.present.includes(p.id));
     const base = pr.filter(r => r.location === 'base').length;
     const home = pr.filter(r => r.location === 'home').length;
@@ -1012,6 +1026,12 @@ function renderStats() {
 // ══════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════
+function shiftBadge(shift) {
+  if (shift === 'both') return '<span class="badge badge-day">☀️ יום</span><span class="badge badge-night">🌙 לילה</span>';
+  if (shift === 'night') return '<span class="badge badge-night">🌙 לילה</span>';
+  return '<span class="badge badge-day">☀️ יום</span>';
+}
+
 function personName(id) {
   const p = state.people.find(x => x.id === id);
   return p ? p.name : id;
