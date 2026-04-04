@@ -225,6 +225,34 @@
   .people-multiselect label:hover { background: var(--surface2); }
   .people-multiselect input[type=checkbox] { width: auto; accent-color: var(--accent-night); }
 
+  /* driver with location toggle */
+  .driver-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 4px;
+    transition: background .15s;
+  }
+  .driver-row:hover { background: var(--surface2); }
+  .driver-row-left { display: flex; align-items: center; gap: 8px; }
+  .driver-loc-toggle { display: flex; gap: 4px; }
+  .driver-loc-btn {
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-family: 'Heebo', sans-serif;
+    cursor: pointer;
+    transition: all .15s;
+    opacity: 0.4;
+  }
+  .driver-loc-btn.active-base { background: rgba(63,185,80,.2); border-color: var(--accent-base); color: var(--accent-base); opacity: 1; }
+  .driver-loc-btn.active-home { background: rgba(188,140,255,.2); border-color: var(--accent-home); color: var(--accent-home); opacity: 1; }
+  .driver-row-left input[type=checkbox]:not(:checked) ~ .driver-name { opacity: 0.5; }
+
   /* ── GRID ── */
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
@@ -475,14 +503,8 @@
         <div class="shift-pill night" id="pill-night" onclick="toggleShift('night')">🌙 לילה</div>
       </div>
 
-      <label class="mt">נהג/ים (בחר אחד או יותר)</label>
+      <label class="mt">נהגים — בחר ומיקום לכל אחד</label>
       <div class="people-multiselect" id="drivers-list"></div>
-
-      <label class="mt">נוכחות (מיקום)</label>
-      <div class="location-toggle">
-        <div class="loc-pill base" id="loc-base" onclick="selectLoc('base')">🏢 בסיס</div>
-        <div class="loc-pill home" id="loc-home" onclick="selectLoc('home')">🏠 בית</div>
-      </div>
 
       <label class="mt">אנשים נוכחים (בחר אחד או יותר)</label>
       <div class="people-multiselect" id="present-list"></div>
@@ -507,7 +529,6 @@
               <th>תאריך</th>
               <th>משמרת</th>
               <th>נהגים</th>
-              <th>מיקום</th>
               <th>נוכחים</th>
               <th>הערות</th>
               <th></th>
@@ -773,18 +794,52 @@ function renderPeople() {
 }
 
 function populatePeopleLists() {
-  ['drivers-list', 'present-list'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.innerHTML = state.people.length === 0
-      ? '<div style="padding:10px;color:var(--text-muted);font-size:13px">אין אנשים ברשימה — הוסף בלשונית "אנשים"</div>'
-      : state.people.map(p => `
-          <label>
-            <input type="checkbox" value="${p.id}">
-            ${p.name}
-          </label>
-        `).join('');
-  });
+  const empty = '<div style="padding:10px;color:var(--text-muted);font-size:13px">אין אנשים ברשימה — הוסף בלשונית "אנשים"</div>';
+
+  // Drivers list — checkbox + per-driver base/home toggle
+  const dEl = document.getElementById('drivers-list');
+  if (dEl) {
+    dEl.innerHTML = state.people.length === 0 ? empty : state.people.map(p => `
+      <div class="driver-row">
+        <div class="driver-row-left">
+          <input type="checkbox" id="drv-${p.id}" value="${p.id}" onchange="onDriverCheck('${p.id}')">
+          <label for="drv-${p.id}" class="driver-name" style="margin:0;color:var(--text);cursor:pointer">${p.name}</label>
+        </div>
+        <div class="driver-loc-toggle" id="drv-loc-${p.id}" style="display:none">
+          <button type="button" class="driver-loc-btn active-base" id="drv-loc-base-${p.id}" onclick="setDriverLoc('${p.id}','base')">🏢 בסיס</button>
+          <button type="button" class="driver-loc-btn" id="drv-loc-home-${p.id}" onclick="setDriverLoc('${p.id}','home')">🏠 בית</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Present list — simple checkboxes
+  const pEl = document.getElementById('present-list');
+  if (pEl) {
+    pEl.innerHTML = state.people.length === 0 ? empty : state.people.map(p => `
+      <label>
+        <input type="checkbox" value="${p.id}">
+        ${p.name}
+      </label>
+    `).join('');
+  }
+}
+
+// per-driver location state
+let driverLocs = {}; // { personId: 'base'|'home' }
+
+function onDriverCheck(id) {
+  const checked = document.getElementById('drv-' + id).checked;
+  const locDiv = document.getElementById('drv-loc-' + id);
+  if (locDiv) locDiv.style.display = checked ? 'flex' : 'none';
+  if (checked && !driverLocs[id]) driverLocs[id] = 'base';
+  if (!checked) delete driverLocs[id];
+}
+
+function setDriverLoc(id, loc) {
+  driverLocs[id] = loc;
+  document.getElementById('drv-loc-base-' + id).className = 'driver-loc-btn' + (loc === 'base' ? ' active-base' : '');
+  document.getElementById('drv-loc-home-' + id).className = 'driver-loc-btn' + (loc === 'home' ? ' active-home' : '');
 }
 
 // ══════════════════════════════════════════
@@ -810,11 +865,7 @@ function selectShift(type) {
   document.getElementById('pill-night').classList.toggle('selected', type === 'night');
 }
 
-function selectLoc(loc) {
-  selectedLoc = loc;
-  document.getElementById('loc-base').classList.toggle('selected', loc === 'base');
-  document.getElementById('loc-home').classList.toggle('selected', loc === 'home');
-}
+function selectLoc(loc) { selectedLoc = loc; } // legacy no-op
 
 function setDefaultDate() {
   const el = document.getElementById('r-date');
@@ -833,27 +884,31 @@ function getChecked(containerId) {
 function saveRecord() {
   const date = document.getElementById('r-date').value;
   const notes = document.getElementById('r-notes').value.trim();
-  const drivers = getChecked('drivers-list');
+  const driverIds = getChecked('drivers-list');
   const present = getChecked('present-list');
 
   if (!date) { showToast('בחר תאריך'); return; }
-  if (drivers.length === 0) { showToast('בחר לפחות נהג אחד'); return; }
+  if (driverIds.length === 0) { showToast('בחר לפחות נהג אחד'); return; }
   if (present.length === 0) { showToast('בחר לפחות נוכח אחד'); return; }
+
+  // drivers = [{id, location}]
+  const drivers = driverIds.map(id => ({ id, location: driverLocs[id] || 'base' }));
 
   state.records.push({
     id: Date.now().toString(),
     date,
     shift: selectedShifts.size === 2 ? 'both' : [...selectedShifts][0],
     drivers,
-    location: selectedLoc,
     present,
     notes
   });
   state.records.sort((a,b) => b.date.localeCompare(a.date));
 
   // reset
+  driverLocs = {};
   document.getElementById('r-notes').value = '';
   document.querySelectorAll('#drivers-list input, #present-list input').forEach(c => c.checked = false);
+  document.querySelectorAll('.driver-loc-toggle').forEach(d => d.style.display = 'none');
 
   saveToDrive();
   showToast('הרישום נשמר בהצלחה ✓');
@@ -872,10 +927,12 @@ function renderLog() {
     <tr>
       <td>${formatDate(r.date)}</td>
       <td>${shiftBadge(r.shift)}</td>
-      <td>${r.drivers.map(id => personName(id)).map(n => `<span class="badge badge-person">${n}</span>`).join('')}</td>
-      <td>${r.location === 'base'
-        ? '<span class="badge badge-base">🏢 בסיס</span>'
-        : '<span class="badge badge-home">🏠 בית</span>'}</td>
+      <td>${(r.drivers || []).map(d => {
+        const id = typeof d === 'object' ? d.id : d;
+        const loc = typeof d === 'object' ? d.location : null;
+        const locBadge = loc === 'base' ? ' <span class="badge badge-base" style="font-size:9px">🏢</span>' : loc === 'home' ? ' <span class="badge badge-home" style="font-size:9px">🏠</span>' : '';
+        return `<span class="badge badge-person">${personName(id)}${locBadge}</span>`;
+      }).join('')}</td>
       <td>${r.present.map(id => personName(id)).map(n => `<span class="badge badge-person">${n}</span>`).join('')}</td>
       <td style="color:var(--text-muted);font-size:12px">${r.notes || '—'}</td>
       <td><button class="btn btn-danger btn-sm" onclick="deleteRecord('${r.id}')">✕</button></td>
@@ -929,7 +986,7 @@ function renderCalendar() {
     const events = recs.map(r => `
       <div class="day-event ${r.shift === 'both' ? 'day' : r.shift}" style="${r.shift === 'both' ? 'background:linear-gradient(90deg,rgba(240,165,0,.2),rgba(76,139,245,.2));color:var(--text)' : ''}">
         ${r.shift === 'both' ? '☀️🌙' : r.shift === 'day' ? '☀️' : '🌙'}
-        ${r.drivers.map(id => personName(id)).join(', ')}
+        ${(r.drivers||[]).map(d=>personName(typeof d==='object'?d.id:d)).join(', ')}
       </div>
     `).join('');
 
@@ -959,7 +1016,12 @@ function openDayModal(iso) {
           ${shiftBadge(r.shift)}
           ${r.location === 'base' ? '<span class="badge badge-base">🏢 בסיס</span>' : '<span class="badge badge-home">🏠 בית</span>'}
         </div>
-        <div style="font-size:13px;margin-bottom:4px;"><b>נהגים:</b> ${r.drivers.map(id => personName(id)).join(', ')}</div>
+        <div style="font-size:13px;margin-bottom:4px;"><b>נהגים:</b> ${(r.drivers||[]).map(d => {
+          const id = typeof d==='object'?d.id:d;
+          const loc = typeof d==='object'?d.location:null;
+          const locTxt = loc==='base'?' 🏢':loc==='home'?' 🏠':'';
+          return personName(id)+locTxt;
+        }).join(' | ')}</div>
         <div style="font-size:13px;margin-bottom:4px;"><b>נוכחים:</b> ${r.present.map(id => personName(id)).join(', ')}</div>
         ${r.notes ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">${r.notes}</div>` : ''}
         <div style="display:flex;justify-content:flex-end;margin-top:10px">
@@ -992,8 +1054,8 @@ function renderStats() {
   const totalRecs = state.records.length;
   const dayRecs = state.records.filter(r => r.shift === 'day' || r.shift === 'both').length;
   const nightRecs = state.records.filter(r => r.shift === 'night' || r.shift === 'both').length;
-  const baseRecs = state.records.filter(r => r.location === 'base').length;
-  const homeRecs = state.records.filter(r => r.location === 'home').length;
+  const baseRecs = state.records.reduce((acc,r)=>acc+(r.drivers||[]).filter(d=>(typeof d==='object'?d.location:null)==='base').length,0);
+  const homeRecs = state.records.reduce((acc,r)=>acc+(r.drivers||[]).filter(d=>(typeof d==='object'?d.location:null)==='home').length,0);
 
   document.getElementById('stats-grid').innerHTML = `
     <div class="stat-card"><div class="stat-value">${totalRecs}</div><div class="stat-label">סה"כ רישומים</div></div>
@@ -1006,12 +1068,12 @@ function renderStats() {
 
   const tbody = document.getElementById('stats-tbody');
   tbody.innerHTML = state.people.map(p => {
-    const dr = state.records.filter(r => r.drivers.includes(p.id));
+    const dr = state.records.filter(r => (r.drivers||[]).some(d => (typeof d==='object'?d.id:d) === p.id));
     const day = dr.filter(r => r.shift === 'day' || r.shift === 'both').length;
     const night = dr.filter(r => r.shift === 'night' || r.shift === 'both').length;
-    const pr = state.records.filter(r => r.present.includes(p.id));
-    const base = pr.filter(r => r.location === 'base').length;
-    const home = pr.filter(r => r.location === 'home').length;
+    const pr = state.records.filter(r => (r.present||[]).includes(p.id));
+    const base = state.records.reduce((acc,r)=>acc+(r.drivers||[]).filter(d=>(typeof d==='object'?d.id:d)===p.id&&(typeof d==='object'?d.location:null)==='base').length,0);
+    const home = state.records.reduce((acc,r)=>acc+(r.drivers||[]).filter(d=>(typeof d==='object'?d.id:d)===p.id&&(typeof d==='object'?d.location:null)==='home').length,0);
     return `<tr>
       <td><b>${p.name}</b></td>
       <td><span class="badge badge-day">${day}</span></td>
